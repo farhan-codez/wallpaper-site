@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Wallpaper {
+  id              String   @id @default(cuid())
+  title           String
+  tags            String   @default("")
+  desktopUrl      String?
+  desktopWidth    Int      @default(0)
+  desktopHeight   Int      @default(0)
+  mobileUrl       String?
+  mobileWidth     Int      @default(0)
+  mobileHeight    Int      @default(0)
+  downloads       Int      @default(0)
+  createdAt       DateTime @default(now())
+}
