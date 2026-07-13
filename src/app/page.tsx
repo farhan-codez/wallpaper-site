@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useTheme } from "@/components/theme-provider";
-import { Moon, Sun, Search, Download, Eye, Monitor, Smartphone } from "lucide-react";
+import { Moon, Sun, Search, Download, Monitor, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
 
@@ -197,18 +197,17 @@ export default function Home() {
               const thumb = getThumbnail(wp);
               if (!thumb) return null;
               return (
-                <div
+                <Link
                   key={wp.id}
-                  className="group relative rounded-2xl overflow-hidden bg-card border border-border hover:border-foreground/20 transition-all"
+                  href={`/wallpaper/${wp.id}`}
+                  className="group relative block rounded-2xl overflow-hidden bg-card border border-border hover:border-foreground/20 transition-all"
                 >
-                  <Link href={`/wallpaper/${wp.id}`}>
-                    <img
-                      src={thumb}
-                      alt={wp.title}
-                      className="w-full block"
-                      loading="lazy"
-                    />
-                  </Link>
+                  <img
+                    src={thumb}
+                    alt={wp.title}
+                    className="w-full block"
+                    loading="lazy"
+                  />
 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300" />
 
@@ -234,15 +233,10 @@ export default function Home() {
                       </div>
 
                       <div className="flex gap-1">
-                        <Link
-                          href={`/wallpaper/${wp.id}`}
-                          className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </Link>
                         <button
                           onClick={(e) => {
                             e.preventDefault();
+                            e.stopPropagation();
                             handleDownload(wp);
                           }}
                           className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -252,7 +246,7 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
