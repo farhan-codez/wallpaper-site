@@ -39,6 +39,7 @@ export default function WallpaperPage() {
   const [lightbox, setLightbox] = useState(false);
   const [loading, setLoading] = useState(true);
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -57,38 +58,33 @@ export default function WallpaperPage() {
 
   if (!wallpaper) return null;
 
-  const activeFilename =
-    device === "desktop" ? wallpaper.desktopUrl : wallpaper.mobileUrl;
-  const activeWidth =
-    device === "desktop" ? wallpaper.desktopWidth : wallpaper.mobileWidth;
-  const activeHeight =
-    device === "desktop" ? wallpaper.desktopHeight : wallpaper.mobileHeight;
-
   const hasDesktop = !!wallpaper.desktopUrl;
   const hasMobile = !!wallpaper.mobileUrl;
+  const hasBoth = hasDesktop && hasMobile;
 
-  const handleDownload = async () => {
-    if (!activeFilename) return;
-    const ext = activeFilename.split(".").pop()?.split("?")[0] || "jpg";
+  const handleDownload = async (target?: "desktop" | "mobile") => {
+    const url = target === "mobile" ? wallpaper.mobileUrl : target === "desktop" ? wallpaper.desktopUrl : (wallpaper.desktopUrl || wallpaper.mobileUrl);
+    if (!url) return;
+    const ext = url.split(".").pop()?.split("?")[0] || "jpg";
     const name = wallpaper.title
       .replace(/[^a-zA-Z0-9\s-_]/g, "")
       .replace(/\s+/g, "-")
       .toLowerCase();
-    const suffix = hasDesktop && hasMobile ? `-${device}` : "";
+    const suffix = hasBoth ? `-${target || device}` : "";
 
     try {
-      const res = await fetch(activeFilename);
+      const res = await fetch(url);
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = url;
+      link.href = blobUrl;
       link.download = `${name}${suffix}.${ext}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(blobUrl);
     } catch {
-      window.open(activeFilename, "_blank");
+      window.open(url, "_blank");
     }
 
     await fetch("/api/wallpapers/download", {
@@ -100,6 +96,15 @@ export default function WallpaperPage() {
     setWallpaper((prev) =>
       prev ? { ...prev, downloads: prev.downloads + 1 } : prev
     );
+    setShowDownloadModal(false);
+  };
+
+  const onDownloadClick = () => {
+    if (hasBoth) {
+      setShowDownloadModal(true);
+    } else {
+      handleDownload(hasDesktop ? "desktop" : "mobile");
+    }
   };
 
   const handleShare = async () => {
@@ -183,7 +188,7 @@ export default function WallpaperPage() {
               </button>
 
               <button
-                onClick={handleDownload}
+                onClick={onDownloadClick}
                 className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity"
               >
                 <Download className="w-4 h-4" />
@@ -227,9 +232,9 @@ export default function WallpaperPage() {
         )}
 
         <div className={`rounded-xl sm:rounded-2xl overflow-hidden border border-border bg-card mx-auto ${device === "mobile" ? "max-w-[240px]" : ""}`}>
-          {activeFilename && (
+          {((device === "desktop" ? wallpaper.desktopUrl : wallpaper.mobileUrl) || wallpaper.desktopUrl || wallpaper.mobileUrl) && (
             <img
-              src={activeFilename}
+              src={device === "desktop" ? wallpaper.desktopUrl || wallpaper.mobileUrl! : wallpaper.mobileUrl || wallpaper.desktopUrl!}
               alt={wallpaper.title}
               className="w-full"
             />
@@ -259,12 +264,13 @@ export default function WallpaperPage() {
           </div>
 
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-muted">
-            {activeWidth > 0 && (
-              <span>
-                Resolution: {activeWidth} x {activeHeight}
-              </span>
+            {device === "desktop" && wallpaper.desktopWidth > 0 && (
+              <span>Resolution: {wallpaper.desktopWidth} x {wallpaper.desktopHeight}</span>
             )}
-            {hasDesktop && hasMobile && (
+            {device === "mobile" && wallpaper.mobileWidth > 0 && (
+              <span>Resolution: {wallpaper.mobileWidth} x {wallpaper.mobileHeight}</span>
+            )}
+            {hasBoth && (
               <span className="flex items-center gap-1">
                 <Monitor className="w-3 h-3" />
                 <Smartphone className="w-3 h-3" />
@@ -285,7 +291,7 @@ export default function WallpaperPage() {
       />
 
       {/* Lightbox */}
-      {lightbox && activeFilename && (
+      {lightbox && (wallpaper.desktopUrl || wallpaper.mobileUrl) && (
         <div
           className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-3 sm:p-4 cursor-zoom-out"
           onClick={() => setLightbox(false)}
@@ -298,10 +304,61 @@ export default function WallpaperPage() {
           </button>
 
           <img
-            src={activeFilename}
+            src={device === "desktop" ? wallpaper.desktopUrl || wallpaper.mobileUrl! : wallpaper.mobileUrl || wallpaper.desktopUrl!}
             alt={wallpaper.title}
             className="max-w-full max-h-full object-contain rounded-lg"
           />
+        </div>
+      )}
+
+      {/* Download Modal */}
+      {showDownloadModal && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/60 flex items-center justify-center p-4"
+          onClick={() => setShowDownloadModal(false)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl p-5 w-full max-w-xs shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-bold text-lg text-foreground mb-4 text-center">Download</h3>
+            <div className="space-y-2">
+              {hasDesktop && (
+                <button
+                  onClick={() => handleDownload("desktop")}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-background transition-colors text-left"
+                >
+                  <Monitor className="w-5 h-5 text-foreground shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Desktop</p>
+                    {wallpaper.desktopWidth > 0 && (
+                      <p className="text-xs text-muted">{wallpaper.desktopWidth} x {wallpaper.desktopHeight}</p>
+                    )}
+                  </div>
+                </button>
+              )}
+              {hasMobile && (
+                <button
+                  onClick={() => handleDownload("mobile")}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-background transition-colors text-left"
+                >
+                  <Smartphone className="w-5 h-5 text-foreground shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Mobile</p>
+                    {wallpaper.mobileWidth > 0 && (
+                      <p className="text-xs text-muted">{wallpaper.mobileWidth} x {wallpaper.mobileHeight}</p>
+                    )}
+                  </div>
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShowDownloadModal(false)}
+              className="w-full mt-4 px-4 py-2 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-background transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
     </div>
