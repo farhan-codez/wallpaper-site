@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useTheme } from "@/components/theme-provider";
-import { Moon, Sun, Search, Download, Monitor, Smartphone } from "lucide-react";
+import { Moon, Sun, Search, Download, Monitor, Smartphone, X } from "lucide-react";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
 
@@ -26,6 +26,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState("");
   const [loading, setLoading] = useState(true);
+  const [downloadTarget, setDownloadTarget] = useState<Wallpaper | null>(null);
 
   const fetchWallpapers = useCallback(async (q?: string, tag?: string) => {
     setLoading(true);
@@ -67,28 +68,30 @@ export default function Home() {
   const getThumbnail = (wp: Wallpaper) =>
     wp.desktopUrl || wp.mobileUrl || "";
 
-  const handleDownload = async (wp: Wallpaper) => {
-    const filename = getThumbnail(wp);
-    if (!filename) return;
-    const ext = filename.split(".").pop()?.split("?")[0] || "jpg";
+  const handleDownload = async (wp: Wallpaper, target?: "desktop" | "mobile") => {
+    const url = target === "mobile" ? wp.mobileUrl : target === "desktop" ? wp.desktopUrl : (wp.desktopUrl || wp.mobileUrl);
+    if (!url) return;
+    const ext = url.split(".").pop()?.split("?")[0] || "jpg";
     const name = wp.title
       .replace(/[^a-zA-Z0-9\s-_]/g, "")
       .replace(/\s+/g, "-")
       .toLowerCase();
+    const hasBoth = !!wp.desktopUrl && !!wp.mobileUrl;
+    const suffix = hasBoth ? `-${target || "desktop"}` : "";
 
     try {
-      const res = await fetch(filename);
+      const res = await fetch(url);
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = url;
-      link.download = `${name}.${ext}`;
+      link.href = blobUrl;
+      link.download = `${name}${suffix}.${ext}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(blobUrl);
     } catch {
-      window.open(filename, "_blank");
+      window.open(url, "_blank");
     }
 
     await fetch("/api/wallpapers/download", {
@@ -102,6 +105,17 @@ export default function Home() {
         w.id === wp.id ? { ...w, downloads: w.downloads + 1 } : w
       )
     );
+    setDownloadTarget(null);
+  };
+
+  const onDownloadClick = (e: React.MouseEvent, wp: Wallpaper) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (wp.desktopUrl && wp.mobileUrl) {
+      setDownloadTarget(wp);
+    } else {
+      handleDownload(wp);
+    }
   };
 
   return (
@@ -234,11 +248,7 @@ export default function Home() {
 
                       <div className="flex gap-1">
                         <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleDownload(wp);
-                          }}
+                          onClick={(e) => onDownloadClick(e, wp)}
                           className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
                         >
                           <Download className="w-3.5 h-3.5" />
@@ -257,6 +267,57 @@ export default function Home() {
         wallpaperCount={wallpapers.length}
         totalDownloads={wallpapers.reduce((acc, w) => acc + w.downloads, 0)}
       />
+
+      {/* Download Modal */}
+      {downloadTarget && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/60 flex items-center justify-center p-4"
+          onClick={() => setDownloadTarget(null)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl p-5 w-full max-w-xs shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-bold text-lg text-foreground mb-4 text-center">Download</h3>
+            <div className="space-y-2">
+              {downloadTarget.desktopUrl && (
+                <button
+                  onClick={() => handleDownload(downloadTarget, "desktop")}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-background transition-colors text-left"
+                >
+                  <Monitor className="w-5 h-5 text-foreground shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Desktop</p>
+                    {downloadTarget.desktopWidth > 0 && (
+                      <p className="text-xs text-muted">{downloadTarget.desktopWidth} x {downloadTarget.desktopHeight}</p>
+                    )}
+                  </div>
+                </button>
+              )}
+              {downloadTarget.mobileUrl && (
+                <button
+                  onClick={() => handleDownload(downloadTarget, "mobile")}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-background transition-colors text-left"
+                >
+                  <Smartphone className="w-5 h-5 text-foreground shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Mobile</p>
+                    {downloadTarget.mobileWidth > 0 && (
+                      <p className="text-xs text-muted">{downloadTarget.mobileWidth} x {downloadTarget.mobileHeight}</p>
+                    )}
+                  </div>
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setDownloadTarget(null)}
+              className="w-full mt-4 px-4 py-2 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-background transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
