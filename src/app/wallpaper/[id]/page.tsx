@@ -69,16 +69,27 @@ export default function WallpaperPage() {
 
   const handleDownload = async () => {
     if (!activeFilename) return;
-    const ext = activeFilename.split(".").pop() || "jpg";
+    const ext = activeFilename.split(".").pop()?.split("?")[0] || "jpg";
     const name = wallpaper.title
       .replace(/[^a-zA-Z0-9\s-_]/g, "")
       .replace(/\s+/g, "-")
       .toLowerCase();
     const suffix = hasDesktop && hasMobile ? `-${device}` : "";
-    const link = document.createElement("a");
-    link.href = activeFilename;
-    link.download = `${name}${suffix}.${ext}`;
-    link.click();
+
+    try {
+      const res = await fetch(activeFilename);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${name}${suffix}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(activeFilename, "_blank");
+    }
 
     await fetch("/api/wallpapers/download", {
       method: "POST",
@@ -215,7 +226,7 @@ export default function WallpaperPage() {
           </div>
         )}
 
-        <div className="rounded-xl sm:rounded-2xl overflow-hidden border border-border bg-card">
+        <div className={`rounded-xl sm:rounded-2xl overflow-hidden border border-border bg-card mx-auto ${device === "mobile" ? "max-w-xs" : ""}`}>
           {activeFilename && (
             <img
               src={activeFilename}

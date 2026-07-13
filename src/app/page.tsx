@@ -70,15 +70,26 @@ export default function Home() {
   const handleDownload = async (wp: Wallpaper) => {
     const filename = getThumbnail(wp);
     if (!filename) return;
-    const ext = filename.split(".").pop() || "jpg";
+    const ext = filename.split(".").pop()?.split("?")[0] || "jpg";
     const name = wp.title
       .replace(/[^a-zA-Z0-9\s-_]/g, "")
       .replace(/\s+/g, "-")
       .toLowerCase();
-    const link = document.createElement("a");
-    link.href = filename;
-    link.download = `${name}.${ext}`;
-    link.click();
+
+    try {
+      const res = await fetch(filename);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${name}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(filename, "_blank");
+    }
 
     await fetch("/api/wallpapers/download", {
       method: "POST",
