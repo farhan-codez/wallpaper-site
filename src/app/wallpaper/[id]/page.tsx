@@ -226,7 +226,7 @@ export default function WallpaperPage() {
           </div>
         )}
 
-        <div className={`rounded-xl sm:rounded-2xl overflow-hidden border border-border bg-card mx-auto ${device === "mobile" ? "max-w-xs" : ""}`}>
+        <div className={`rounded-xl sm:rounded-2xl overflow-hidden border border-border bg-card mx-auto ${device === "mobile" ? "max-w-[240px]" : ""}`}>
           {activeFilename && (
             <img
               src={activeFilename}
